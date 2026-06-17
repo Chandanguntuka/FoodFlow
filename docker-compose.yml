@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: hcl-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: hcl
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - hcl-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./hcl-backend
+      dockerfile: Dockerfile
+    container_name: hcl-backend
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/hcl
+      CORS_ALLOWED_ORIGIN_PATTERNS: "http://localhost:3000,http://localhost:5173"
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: 587
+      MAIL_USERNAME: your-email@gmail.com
+      MAIL_PASSWORD: your-app-password
+      MAIL_FROM: your-email@gmail.com
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - hcl-network
+    volumes:
+      - ./hcl-backend/src:/app/src
+
+  frontend:
+    build:
+      context: ./hcl-frontend
+      dockerfile: Dockerfile
+    container_name: hcl-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: "http://localhost:8080"
+    depends_on:
+      - backend
+    networks:
+      - hcl-network
+    volumes:
+      - ./hcl-frontend/src:/app/src
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  hcl-network:
+    driver: bridge
