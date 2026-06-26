@@ -1,75 +1,60 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
-import { cartAPI } from '../services/api'
-import { useAuth } from './AuthContext'
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 
 const CartContext = createContext(null)
+const DELIVERY_CHARGE = 40
 
 export function CartProvider({ children }) {
-  const { token } = useAuth()
-  const [cart, setCart]           = useState(null)
-  const [cartCount, setCartCount] = useState(0)
-  const [loading, setLoading]     = useState(false)
+  const [items, setItems] = useState(() => JSON.parse(localStorage.getItem('cartItems') || '[]'))
+  const [restaurant, setRestaurant] = useState(() => JSON.parse(localStorage.getItem('cartRestaurant') || 'null'))
 
-  useEffect(() => {
-    if (token) fetchCart()
-    else { setCart(null); setCartCount(0) }
-  }, [token])
+  useEffect(() => localStorage.setItem('cartItems', JSON.stringify(items)), [items])
+  useEffect(() => localStorage.setItem('cartRestaurant', JSON.stringify(restaurant)), [restaurant])
 
-  const fetchCart = async () => {
-    try {
-      const res = await cartAPI.getCart()
-      setCart(res.data)
-      const count = res.data?.items?.reduce((sum, i) => sum + i.quantity, 0) || 0
-      setCartCount(count)
-    } catch {
-      setCart(null); setCartCount(0)
+  const addItem = (item, sourceRestaurant) => {
+    if (restaurant?.id && restaurant.id !== sourceRestaurant.id) {
+      setItems([{ ...item, quantity: 1 }])
+      setRestaurant(sourceRestaurant)
+      toast.success('Cart switched to this restaurant')
+      return
     }
+    setRestaurant(sourceRestaurant)
+    setItems((current) => {
+      const existing = current.find((line) => line.id === item.id)
+      if (existing) return current.map((line) => line.id === item.id ? { ...line, quantity: line.quantity + 1 } : line)
+      return [...current, { ...item, quantity: 1 }]
+    })
+    toast.success('Added to cart')
   }
 
-  const addToCart = async (menuItemId, quantity = 1, price = 0) => {
-    setLoading(true)
-    try {
-      await cartAPI.addItem({ menuItemId, quantity, price })
-      await fetchCart()
-      toast.success('Added to cart! 🛒')
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add item')
-    } finally { setLoading(false) }
+  const updateQty = (id, quantity) => {
+    if (quantity <= 0) {
+      removeItem(id)
+      return
+    }
+    setItems((current) => current.map((line) => line.id === id ? { ...line, quantity } : line))
   }
 
-  const updateQuantity = async (cartItemId, quantity) => {
-    try {
-      if (quantity <= 0) { await removeFromCart(cartItemId); return }
-      await cartAPI.updateItem(cartItemId, { quantity })
-      await fetchCart()
-    } catch { toast.error('Failed to update') }
+  const removeItem = (id) => setItems((current) => current.filter((line) => line.id !== id))
+
+  const clearCart = () => {
+    setItems([])
+    setRestaurant(null)
   }
 
-  const removeFromCart = async (cartItemId) => {
-    try {
-      await cartAPI.removeItem(cartItemId)
-      await fetchCart()
-      toast.success('Item removed')
-    } catch { toast.error('Failed to remove item') }
-  }
-
-  const clearCart = async () => {
-    try {
-      await cartAPI.clearCart()
-      await fetchCart()
-    } catch { toast.error('Failed to clear cart') }
-  }
+  const subtotal = useMemo(() => items.reduce((sum, line) => sum + Number(line.price) * line.quantity, 0), [items])
+  const total = items.length ? subtotal + DELIVERY_CHARGE : 0
+  const cartCount = items.reduce((sum, line) => sum + line.quantity, 0)
 
   return (
-    <CartContext.Provider value={{ cart, cartCount, loading, fetchCart, addToCart, updateQuantity, removeFromCart, clearCart }}>
+    <CartContext.Provider value={{ items, restaurant, cartCount, subtotal, deliveryCharge: DELIVERY_CHARGE, total, addItem, updateQty, removeItem, clearCart }}>
       {children}
     </CartContext.Provider>
   )
 }
 
 export const useCart = () => {
-  const ctx = useContext(CartContext)
-  if (!ctx) throw new Error('useCart must be used within CartProvider')
-  return ctx
+  const context = useContext(CartContext)
+  if (!context) throw new Error('useCart must be used within CartProvider')
+  return context
 }

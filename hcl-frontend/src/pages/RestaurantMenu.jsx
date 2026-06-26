@@ -20,12 +20,17 @@ export default function RestaurantMenu() {
   const [activeCategory, setActiveCategory] = useState('All')
   const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
-  const canManageMenu = ['ADMIN', 'RESTAURANT'].includes(user?.role)
+  const canManageMenu = user?.role === 'ADMIN'
   const [addingItem, setAddingItem] = useState(false)
   const [newItem, setNewItem] = useState({
     name: '',
+    description: '',
     category: '',
     price: '',
+    imageUrl: '',
+    isVeg: true,
+    rating: '4.2',
+    preparationTime: '20',
     available: true,
   })
 
@@ -59,6 +64,10 @@ export default function RestaurantMenu() {
     setMenuItems(items => items.map(item => item.id === updatedItem.id ? updatedItem : item))
   }
 
+  const handleMenuItemDelete = (id) => {
+    setMenuItems(items => items.filter(item => item.id !== id))
+  }
+
   const handleAddMenuItem = async (event) => {
     event.preventDefault()
     try {
@@ -66,13 +75,18 @@ export default function RestaurantMenu() {
       const res = await menuItemAPI.create({
         restaurantId: Number(id),
         name: newItem.name,
+        description: newItem.description,
         category: newItem.category,
         price: Number(newItem.price),
+        imageUrl: newItem.imageUrl,
+        isVeg: newItem.isVeg,
+        rating: Number(newItem.rating),
+        preparationTime: Number(newItem.preparationTime),
         available: newItem.available,
       })
       setMenuItems(items => [res.data, ...items])
       setCategories(current => current.includes(res.data.category) ? current : [...current, res.data.category])
-      setNewItem({ name: '', category: '', price: '', available: true })
+      setNewItem({ name: '', description: '', category: '', price: '', imageUrl: '', isVeg: true, rating: '4.2', preparationTime: '20', available: true })
       toast.success('Menu item added')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not add menu item')
@@ -149,6 +163,12 @@ export default function RestaurantMenu() {
               />
               <input
                 className="input-field"
+                placeholder="Description"
+                value={newItem.description}
+                onChange={e => setNewItem(data => ({ ...data, description: e.target.value }))}
+              />
+              <input
+                className="input-field"
                 placeholder="Category"
                 value={newItem.category}
                 onChange={e => setNewItem(data => ({ ...data, category: e.target.value }))}
@@ -164,6 +184,38 @@ export default function RestaurantMenu() {
                 onChange={e => setNewItem(data => ({ ...data, price: e.target.value }))}
                 required
               />
+              <input
+                className="input-field"
+                placeholder="Image URL"
+                value={newItem.imageUrl}
+                onChange={e => setNewItem(data => ({ ...data, imageUrl: e.target.value }))}
+              />
+              <input
+                className="input-field"
+                type="number"
+                min="0"
+                max="5"
+                step="0.1"
+                placeholder="Rating"
+                value={newItem.rating}
+                onChange={e => setNewItem(data => ({ ...data, rating: e.target.value }))}
+              />
+              <input
+                className="input-field"
+                type="number"
+                min="1"
+                placeholder="Prep min"
+                value={newItem.preparationTime}
+                onChange={e => setNewItem(data => ({ ...data, preparationTime: e.target.value }))}
+              />
+              <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={newItem.isVeg}
+                  onChange={e => setNewItem(data => ({ ...data, isVeg: e.target.checked }))}
+                />
+                Veg
+              </label>
               <button
                 type="submit"
                 disabled={addingItem}
@@ -215,7 +267,7 @@ export default function RestaurantMenu() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filtered.map((item, i) => (
               <div key={item.id} className="animate-slide-up" style={{ animationDelay: `${i * 40}ms` }}>
-                <MenuItemCard item={item} canManage={canManageMenu} onChange={handleMenuItemChange} />
+                <MenuItemCard item={item} restaurant={restaurant} canManage={canManageMenu} onChange={handleMenuItemChange} onDelete={handleMenuItemDelete} />
               </div>
             ))}
           </div>

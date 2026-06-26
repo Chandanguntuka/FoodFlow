@@ -4,28 +4,28 @@ import { ArrowLeft, MapPin, Clock, Receipt, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Navbar from '../components/Navbar'
 import OrderStatusTracker from '../components/OrderStatusTracker'
-import { orderAPI } from '../services/api'
+import { adminAPI, orderAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
 const STATUS_TIMES = {
-  PLACED:           { label: 'Order placed',      eta: '~35 min' },
+  PENDING:          { label: 'Order placed',      eta: '~35 min' },
   CONFIRMED:        { label: 'Order confirmed',    eta: '~30 min' },
   PREPARING:        { label: 'Being prepared',     eta: '~20 min' },
   OUT_FOR_DELIVERY: { label: 'Out for delivery',   eta: '~10 min' },
   DELIVERED:        { label: 'Delivered!',         eta: 'Enjoy!' },
 }
 
-const STATUS_OPTIONS = ['PLACED', 'CONFIRMED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED']
+const STATUS_OPTIONS = ['PENDING', 'CONFIRMED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED']
 
-const isRestaurantStaff = (user) => ['ADMIN', 'RESTAURANT'].includes(user?.role)
+const isRestaurantStaff = (user) => user?.role === 'ADMIN'
 
 export default function OrderTracking() {
   const { id }   = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [order,   setOrder]   = useState(null)
-  const [status,  setStatus]  = useState('PLACED')
-  const [nextStatus, setNextStatus] = useState('PLACED')
+  const [status,  setStatus]  = useState('PENDING')
+  const [nextStatus, setNextStatus] = useState('PENDING')
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
@@ -45,7 +45,9 @@ export default function OrderTracking() {
   const handleStatusUpdate = async () => {
     try {
       setUpdating(true)
-      const res = await orderAPI.updateStatus(id, nextStatus)
+      const res = canManageOrder
+        ? await adminAPI.updateOrderStatus(id, nextStatus)
+        : await orderAPI.updateStatus(id, nextStatus)
       setOrder(res.data)
       setStatus(res.data.status)
       setNextStatus(res.data.status)
@@ -92,7 +94,7 @@ export default function OrderTracking() {
     </div>
   )
 
-  const statusInfo = STATUS_TIMES[status] || STATUS_TIMES.PLACED
+  const statusInfo = STATUS_TIMES[status] || STATUS_TIMES.PENDING
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -161,7 +163,7 @@ export default function OrderTracking() {
             </div>
             <div className="flex items-center gap-3 text-gray-600">
               <Clock className="w-4 h-4 text-primary-500" />
-              <span>Placed at: {order?.placedAt ? new Date(order.placedAt).toLocaleTimeString() : 'N/A'}</span>
+              <span>Placed at: {order?.placedAt || order?.createdAt ? new Date(order.placedAt || order.createdAt).toLocaleTimeString() : 'N/A'}</span>
             </div>
           </div>
         </div>
@@ -191,7 +193,7 @@ export default function OrderTracking() {
         )}
 
         {/* Cancel button */}
-        {!canManageOrder && (status === 'PLACED' || status === 'CONFIRMED') && (
+        {!canManageOrder && (status === 'PENDING' || status === 'CONFIRMED') && (
           <button
             onClick={() => setShowCancelConfirm(true)}
             className="w-full py-3 border-2 border-red-200 text-red-500 rounded-2xl font-semibold hover:bg-red-50 transition-colors text-sm"

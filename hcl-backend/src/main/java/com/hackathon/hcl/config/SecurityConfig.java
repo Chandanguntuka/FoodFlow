@@ -58,9 +58,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/restaurants/**").permitAll()
-                        .requestMatchers(HttpMethod.PUT, "/api/restaurants/*/image").hasAnyAuthority("ADMIN", "RESTAURANT")
-                        .requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN", "RESTAURANT")
-                        .requestMatchers(HttpMethod.PUT, "/api/menu-items/*/image").hasAnyAuthority("ADMIN", "RESTAURANT")
+                        .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/orders/**", "/api/payment/**").hasAnyAuthority("USER", "ADMIN")
                         .anyRequest().authenticated())
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) ->

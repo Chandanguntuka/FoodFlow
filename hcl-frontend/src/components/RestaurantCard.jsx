@@ -1,122 +1,102 @@
 import React, { useState } from 'react'
+import { Clock, IndianRupee, MapPin, Pencil, Save, Star, Trash2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Star, Clock, MapPin, ChevronRight, ImagePlus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { restaurantAPI } from '../services/api'
 
-export default function RestaurantCard({ restaurant, canManage = false, onChange }) {
+export default function RestaurantCard({ restaurant, canManage = false, onChange, onDelete }) {
   const navigate = useNavigate()
-  const [uploading, setUploading] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    name: restaurant.name || '',
+    cuisine: restaurant.cuisine || '',
+    location: restaurant.location || '',
+    imageUrl: restaurant.imageUrl || '',
+    rating: restaurant.rating || 4.2,
+    deliveryTime: restaurant.deliveryTime || '30-40 min',
+    minOrder: restaurant.minOrder || 149,
+    isOpen: restaurant.isOpen ?? true,
+  })
 
-  const cuisineColors = {
-    'Indian': 'bg-orange-100 text-orange-700',
-    'Chinese': 'bg-red-100 text-red-700',
-    'Italian': 'bg-green-100 text-green-700',
-    'Pizza': 'bg-yellow-100 text-yellow-700',
-    'Burger': 'bg-blue-100 text-blue-700',
-    'default': 'bg-gray-100 text-gray-700',
-  }
-  const cuisineClass = cuisineColors[restaurant.cuisine] || cuisineColors.default
-  const menuItems = restaurant.menuItems || []
-  const previewItems = menuItems.slice(0, 3)
-
-  const handleImageUpload = async (event) => {
-    event.stopPropagation()
-    const image = event.target.files?.[0]
-    if (!image) return
-
+  const save = async () => {
     try {
-      setUploading(true)
-      const res = await restaurantAPI.uploadImage(restaurant.id, image)
+      setSaving(true)
+      const res = await restaurantAPI.update(restaurant.id, form)
       onChange?.(res.data)
-      toast.success('Restaurant image replaced')
+      setEditing(false)
+      toast.success('Restaurant updated')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Could not replace image')
+      toast.error(err.response?.data?.message || 'Could not update restaurant')
     } finally {
-      setUploading(false)
-      event.target.value = ''
+      setSaving(false)
     }
   }
 
-  return (
-    <div
-      className="card cursor-pointer group"
-      onClick={() => navigate(`/restaurant/${restaurant.id}`)}
-    >
-      {/* Image */}
-      <div className="relative h-44 bg-gradient-to-br from-orange-100 to-amber-50 overflow-hidden">
-        {restaurant.imageUrl ? (
-          <img src={restaurant.imageUrl} alt={restaurant.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="text-6xl">🍽️</span>
+  const remove = async () => {
+    if (!window.confirm(`Delete ${restaurant.name}?`)) return
+    try {
+      await restaurantAPI.delete(restaurant.id)
+      onDelete?.(restaurant.id)
+      toast.success('Restaurant deleted')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not delete restaurant')
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="overflow-hidden rounded-lg border border-primary-200 bg-white shadow-sm">
+        <div className="space-y-3 p-4">
+          <input className="input-field" value={form.name} onChange={e => setForm(data => ({ ...data, name: e.target.value }))} placeholder="Restaurant name" />
+          <input className="input-field" value={form.cuisine} onChange={e => setForm(data => ({ ...data, cuisine: e.target.value }))} placeholder="Cuisine" />
+          <input className="input-field" value={form.location} onChange={e => setForm(data => ({ ...data, location: e.target.value }))} placeholder="Location" />
+          <input className="input-field" value={form.imageUrl} onChange={e => setForm(data => ({ ...data, imageUrl: e.target.value }))} placeholder="Image URL" />
+          <div className="grid grid-cols-3 gap-2">
+            <input className="input-field" type="number" step="0.1" value={form.rating} onChange={e => setForm(data => ({ ...data, rating: e.target.value }))} placeholder="Rating" />
+            <input className="input-field" value={form.deliveryTime} onChange={e => setForm(data => ({ ...data, deliveryTime: e.target.value }))} placeholder="Delivery" />
+            <input className="input-field" type="number" value={form.minOrder} onChange={e => setForm(data => ({ ...data, minOrder: e.target.value }))} placeholder="Min order" />
           </div>
-        )}
-        {/* Open/Closed badge */}
-        <div className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-semibold ${restaurant.isOpen ? 'bg-green-500 text-white' : 'bg-gray-400 text-white'}`}>
-          {restaurant.isOpen ? '● Open' : '● Closed'}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={save} disabled={saving} className="btn-primary flex items-center justify-center gap-2 py-2.5 text-sm">
+              <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save'}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="btn-secondary flex items-center justify-center gap-2 py-2.5 text-sm">
+              <X className="h-4 w-4" /> Cancel
+            </button>
+          </div>
         </div>
-        {/* Cuisine tag */}
-        <div className={`absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold ${cuisineClass}`}>
-          {restaurant.cuisine}
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+      <button type="button" onClick={() => navigate(`/restaurant/${restaurant.id}`)} className="block w-full text-left">
+        <img src={restaurant.imageUrl} alt={restaurant.name} className="h-44 w-full object-cover" />
+      </button>
+      <div className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <button type="button" onClick={() => navigate(`/restaurant/${restaurant.id}`)} className="min-w-0 text-left">
+            <h3 className="font-bold text-gray-950">{restaurant.name}</h3>
+            <p className="text-sm text-gray-500">{restaurant.cuisine}</p>
+          </button>
+          <span className="rounded-md bg-green-600 px-2 py-1 text-xs font-bold text-white">Star {restaurant.rating}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+          <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{restaurant.location}</span>
+          <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{restaurant.deliveryTime}</span>
+          <span className="flex items-center gap-1"><IndianRupee className="h-3.5 w-3.5" />Min {restaurant.minOrder}</span>
+          <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />Open now</span>
         </div>
         {canManage && (
-          <label
-            className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 bg-gray-900/90 hover:bg-gray-900 text-white text-xs font-semibold px-2.5 py-1 rounded-full transition-all cursor-pointer"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <ImagePlus className="w-3.5 h-3.5" />
-            {uploading ? 'Uploading...' : 'Image'}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled={uploading}
-              onChange={handleImageUpload}
-            />
-          </label>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="p-4">
-        <div className="flex items-start justify-between">
-          <h3 className="font-bold text-gray-900 text-base group-hover:text-primary-600 transition-colors line-clamp-1">
-            {restaurant.name}
-          </h3>
-          <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-primary-500 group-hover:translate-x-1 transition-all flex-shrink-0 mt-0.5" />
-        </div>
-
-        <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
-          <span className="flex items-center gap-1">
-            <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-            <span className="font-medium text-gray-700">{restaurant.rating?.toFixed(1) || '4.2'}</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5" />
-            {restaurant.deliveryTime || '30-40'} min
-          </span>
-          <span className="flex items-center gap-1">
-            <MapPin className="w-3.5 h-3.5" />
-            <span className="truncate max-w-[100px]">{restaurant.address?.split(',')[0] || 'Nearby'}</span>
-          </span>
-        </div>
-
-        {menuItems.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <p className="text-xs font-semibold text-gray-400 mb-2">Menu items</p>
-            <div className="flex flex-wrap gap-1.5">
-              {previewItems.map(item => (
-                <span key={item.id} className="px-2 py-1 rounded-lg bg-gray-50 text-xs font-medium text-gray-600 border border-gray-100">
-                  {item.name}
-                </span>
-              ))}
-              {menuItems.length > previewItems.length && (
-                <span className="px-2 py-1 rounded-lg bg-primary-50 text-xs font-semibold text-primary-600">
-                  +{menuItems.length - previewItems.length} more
-                </span>
-              )}
-            </div>
+          <div className="grid grid-cols-2 gap-2 border-t border-gray-100 pt-3">
+            <button type="button" onClick={() => setEditing(true)} className="flex items-center justify-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm font-bold text-gray-700 hover:border-primary-300 hover:text-primary-600">
+              <Pencil className="h-4 w-4" /> Edit
+            </button>
+            <button type="button" onClick={remove} className="flex items-center justify-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50">
+              <Trash2 className="h-4 w-4" /> Delete
+            </button>
           </div>
         )}
       </div>

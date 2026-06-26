@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Mail, Lock, User, Phone, UtensilsCrossed } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, Phone, ShieldCheck, UtensilsCrossed } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 // ✅ Field is defined OUTSIDE Register to prevent remount on every keystroke
@@ -58,7 +58,7 @@ export default function Register() {
     phone: '',
     password: '',
     confirmPassword: '',
-    role: 'CUSTOMER',
+    role: 'USER',
   })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
@@ -97,7 +97,7 @@ export default function Register() {
       role: form.role,
     })
     setLoading(false)
-    if (result.success) navigate(form.role === 'RESTAURANT' ? '/orders' : '/')
+    if (result.success) navigate(form.role === 'ADMIN' ? '/orders' : '/')
   }
 
   return (
@@ -118,6 +118,26 @@ export default function Register() {
           <p className="text-gray-500 text-sm mb-6">Join FoodRush and start ordering!</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Account type</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setField('role', 'USER')}
+                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ${form.role === 'USER' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-primary-300'}`}
+                >
+                  <User className="h-4 w-4" /> User
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setField('role', 'ADMIN')}
+                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ${form.role === 'ADMIN' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-primary-300'}`}
+                >
+                  <ShieldCheck className="h-4 w-4" /> Admin
+                </button>
+              </div>
+            </div>
+
             <Field
               label="First name"
               name="firstName"

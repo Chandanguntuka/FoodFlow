@@ -3,7 +3,7 @@
 .SYNOPSIS
     HCL Restaurant App - Automated Database Setup & Application Run
 .DESCRIPTION
-    Automatically initializes the database and starts both backend and frontend
+    Starts both backend and frontend for local development.
 #>
 
 param(
@@ -26,52 +26,22 @@ Write-Info "========================================"
 Write-Info "HCL Restaurant App - Automated Setup"
 Write-Info "========================================"
 
-# Environment Variables
-$env:DB_URL = "jdbc:mysql://localhost:3306/hcl"
+# Environment Variables. Defaults use H2 so local CMD/PowerShell startup does not require MySQL.
+$env:DB_URL = "jdbc:h2:mem:springbeans;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1"
+$env:DB_USERNAME = "sa"
+$env:DB_PASSWORD = ""
+$env:JPA_DDL_AUTO = "update"
 $env:CORS_ALLOWED_ORIGIN_PATTERNS = "http://localhost:5173,http://localhost:3000"
 $env:MAIL_HOST = "smtp.gmail.com"
 $env:MAIL_PORT = "587"
-$env:MAIL_USERNAME = "your-email@gmail.com"
-$env:MAIL_PASSWORD = "your-app-password"
-$env:MAIL_FROM = "your-email@gmail.com"
+$env:MAIL_USERNAME = ""
+$env:MAIL_PASSWORD = ""
+$env:MAIL_FROM = "no-reply@springbeans.local"
 
 Write-Info "Setting environment variables..."
 Write-Info "DB_URL: $env:DB_URL"
 Write-Info "CORS_ALLOWED_ORIGIN_PATTERNS: $env:CORS_ALLOWED_ORIGIN_PATTERNS"
 Write-Host ""
-
-# Check MySQL connection (unless skipped)
-if (-not $SkipMySQLCheck -and -not $FrontendOnly) {
-    Write-Info "Checking MySQL connection..."
-    try {
-        $mysqlTest = mysql -h localhost -u root -proot -e "SELECT 1" 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "[OK] MySQL is running"
-        } else {
-            Write-Warning-Custom "[WARNING] MySQL connection failed!"
-            Write-Warning-Custom "Please ensure MySQL is running with user 'root' and password 'root'"
-            Read-Host "Press Enter to continue anyway or close this window to exit"
-        }
-    } catch {
-        Write-Warning-Custom "[WARNING] MySQL not found in PATH"
-        Write-Warning-Custom "Continuing without MySQL check..."
-    }
-    Write-Host ""
-    
-    # Create database
-    Write-Info "Creating database 'hcl' if it doesn't exist..."
-    try {
-        mysql -h localhost -u root -proot -e "CREATE DATABASE IF NOT EXISTS hcl CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "[OK] Database created/verified"
-        } else {
-            Write-Error-Custom "[ERROR] Failed to create database"
-        }
-    } catch {
-        Write-Warning-Custom "[WARNING] Could not create database automatically"
-    }
-    Write-Host ""
-}
 
 # Start Backend
 if (-not $FrontendOnly) {
@@ -81,12 +51,7 @@ if (-not $FrontendOnly) {
     Write-Info "Backend will be available at: http://localhost:8080"
     Write-Host ""
     
-    Push-Location $backendPath
-    
-    # Run Maven
-    & ".\mvnw.cmd" clean spring-boot:run
-    
-    Pop-Location
+    Start-Process cmd.exe -ArgumentList "/k", "cd /d `"$backendPath`" && mvn spring-boot:run"
 }
 
 # Start Frontend (if not backend-only)
@@ -97,19 +62,11 @@ if (-not $BackendOnly) {
     Write-Info "Frontend will be available at: http://localhost:5173"
     Write-Host ""
     
-    Push-Location $frontendPath
-    
-    # Install dependencies if needed
-    if (-not (Test-Path "node_modules")) {
-        Write-Info "Installing frontend dependencies..."
-        npm install
-    }
-    
-    # Start dev server
-    npm run dev
-    
-    Pop-Location
+    Start-Process cmd.exe -ArgumentList "/k", "cd /d `"$frontendPath`" && if not exist node_modules npm.cmd install && npm.cmd run dev"
 }
 
 Write-Host ""
 Write-Success "Setup complete!"
+Write-Success "Backend:  http://localhost:8080"
+Write-Success "Frontend: http://localhost:5173"
+Write-Success "Seed users: admin@springbeans.com / Admin@123, user@springbeans.com / User@123"

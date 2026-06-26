@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 
 export default function Cart() {
   const navigate = useNavigate()
-  const { cart, updateQuantity, removeFromCart, clearCart, fetchCart } = useCart()
+  const { items, restaurant, updateQty, removeItem, clearCart } = useCart()
   const [address, setAddress] = useState('')
   const [placing, setPlacing] = useState(false)
   const [addrErr, setAddrErr] = useState('')
@@ -23,7 +23,6 @@ export default function Cart() {
     bank: '',
   })
 
-  const items = cart?.items || []
   const subtotal = items.reduce((sum, i) => sum + (i.price * i.quantity), 0)
   const deliveryFee = subtotal > 0 ? 30 : 0
   const total = subtotal + deliveryFee
@@ -45,12 +44,23 @@ export default function Cart() {
 
     setPlacing(true)
     try {
-      const res = await orderAPI.placeOrder({ deliveryAddress: address })
-      await clearCart()
+      if (!restaurant?.id || items.length === 0) {
+        toast.error('Please add items from a restaurant first')
+        return
+      }
+      const res = await orderAPI.placeOrder({
+        restaurantId: restaurant.id,
+        deliveryAddress: address,
+        paymentMethod,
+        items: items.map(item => ({
+          menuItemId: item.id,
+          quantity: item.quantity,
+        })),
+      })
+      clearCart()
       toast.success('Order placed successfully!')
       navigate(`/order/${res.data.id}`)
     } catch (err) {
-      await fetchCart()
       toast.error(err.response?.data?.message || 'Failed to place order')
     } finally {
       setPlacing(false)
@@ -95,16 +105,16 @@ export default function Cart() {
                 </div>
 
                 <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
-                  <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white transition-colors">
+                  <button onClick={() => updateQty(item.id, item.quantity - 1)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white transition-colors">
                     <Minus className="w-3.5 h-3.5 text-gray-600" />
                   </button>
                   <span className="text-sm font-bold text-gray-800 min-w-[20px] text-center">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white transition-colors">
+                  <button onClick={() => updateQty(item.id, item.quantity + 1)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white transition-colors">
                     <Plus className="w-3.5 h-3.5 text-gray-600" />
                   </button>
                 </div>
 
-                <button onClick={() => removeFromCart(item.id)} className="p-2 rounded-xl text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+                <button onClick={() => removeItem(item.id)} className="p-2 rounded-xl text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

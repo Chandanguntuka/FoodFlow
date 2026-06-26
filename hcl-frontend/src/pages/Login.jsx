@@ -1,12 +1,13 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Mail, Lock, UtensilsCrossed } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, ShieldCheck, User, UtensilsCrossed } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const { login }  = useAuth()
   const navigate   = useNavigate()
   const [form, setForm]       = useState({ email: '', password: '' })
+  const [loginAs, setLoginAs] = useState('USER')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading]   = useState(false)
   const [errors, setErrors]     = useState({})
@@ -29,8 +30,16 @@ export default function Login() {
     setLoading(false)
     if (result.success) {
       const role = result.user?.role
-      navigate(role === 'ADMIN' || role === 'RESTAURANT' ? '/orders' : '/')
+      navigate(role === 'ADMIN' ? '/orders' : '/')
     }
+  }
+
+  const useDemoLogin = (role) => {
+    setLoginAs(role)
+    setForm(role === 'ADMIN'
+      ? { email: 'admin@springbeans.com', password: 'Admin@123' }
+      : { email: 'user@springbeans.com', password: 'User@123' })
+    setErrors({})
   }
 
   return (
@@ -74,6 +83,26 @@ export default function Login() {
           <p className="text-gray-500 mb-8">Sign in to continue ordering</p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Login type</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => useDemoLogin('USER')}
+                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ${loginAs === 'USER' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-primary-300'}`}
+                >
+                  <User className="h-4 w-4" /> User
+                </button>
+                <button
+                  type="button"
+                  onClick={() => useDemoLogin('ADMIN')}
+                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ${loginAs === 'ADMIN' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-primary-300'}`}
+                >
+                  <ShieldCheck className="h-4 w-4" /> Admin
+                </button>
+              </div>
+            </div>
+
             {/* Email */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email address</label>

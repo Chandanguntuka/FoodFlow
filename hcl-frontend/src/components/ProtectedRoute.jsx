@@ -2,19 +2,10 @@ import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-export default function ProtectedRoute({ children }) {
-  const { token, loading } = useAuth()
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-14 h-14 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin" />
-          <p className="text-gray-500 font-medium">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  return token ? children : <Navigate to="/login" replace />
+export default function ProtectedRoute({ children, role }) {
+  const { token, user, loading } = useAuth()
+  if (loading) return <div className="min-h-screen grid place-items-center"><div className="h-10 w-10 rounded-full border-4 border-orange-200 border-t-orange-600 animate-spin" /></div>
+  if (!token) return <Navigate to="/login" replace />
+  if (role && user?.role !== role) return <Navigate to={user?.role === 'ADMIN' ? '/admin' : '/'} replace />
+  return children
 }

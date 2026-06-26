@@ -1,179 +1,102 @@
 import axios from 'axios'
 
-const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
-const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, '').endsWith('/api')
-  ? rawApiBaseUrl.replace(/\/+$/, '')
-  : `${rawApiBaseUrl.replace(/\/+$/, '')}/api`
+const rawBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+const baseURL = rawBase.replace(/\/+$/, '').endsWith('/api')
+  ? rawBase.replace(/\/+$/, '')
+  : `${rawBase.replace(/\/+$/, '')}/api`
 
-const toNumber = (value) => {
-  if (value === null || value === undefined) return value
-  const parsed = Number(value)
-  return Number.isNaN(parsed) ? value : parsed
-}
+const api = axios.create({ baseURL, headers: { 'Content-Type': 'application/json' } })
 
-const fullName = (user = {}) =>
-  user.name || [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
-
-const normalizeUser = (user) => user ? {
-  ...user,
-  name: fullName(user) || user.email || 'User',
-  role: user.role || 'CUSTOMER',
-} : user
-
-const normalizeMenuItem = (item) => item ? {
-  ...item,
-  price: toNumber(item.price),
-  isAvailable: item.isAvailable ?? item.available ?? true,
-  imageUrl: item.imageUrl || (
-    item.imageData && item.imageContentType
-      ? `data:${item.imageContentType};base64,${item.imageData}`
-      : undefined
-  ),
-} : item
-
-const normalizeRestaurant = (restaurant) => restaurant ? {
-  ...restaurant,
-  isOpen: restaurant.isOpen ?? restaurant.open ?? false,
-  imageUrl: restaurant.imageUrl || (
-    restaurant.imageData && restaurant.imageContentType
-      ? `data:${restaurant.imageContentType};base64,${restaurant.imageData}`
-      : undefined
-  ),
-  menuItems: restaurant.menuItems?.map(normalizeMenuItem) || restaurant.menuItems,
-} : restaurant
-
-const normalizeCart = (cart) => cart ? {
-  ...cart,
-  totalAmount: toNumber(cart.totalAmount),
-  items: (cart.items || cart.cartItems || []).map(normalizeMenuItem),
-} : cart
-
-const normalizeOrder = (order) => order ? {
-  ...order,
-  totalAmount: toNumber(order.totalAmount),
-  deliveryAddress: order.deliveryAddress || order.address,
-  items: (order.items || order.orderItems || []).map(normalizeMenuItem),
-} : order
-
-const withData = (normalizer) => (response) => {
-  response.data = Array.isArray(response.data)
-    ? response.data.map(normalizer)
-    : normalizer(response.data)
-  return response
-}
-
-const normalizeAuthResponse = (response) => {
-  response.data = {
-    ...response.data,
-    user: normalizeUser(response.data?.user),
-  }
-  return response
-}
-
-const toRegisterRequest = ({ name = '', firstName, lastName, role, ...rest }) => {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  return {
-    ...rest,
-    firstName: firstName || parts[0] || '',
-    lastName: lastName || parts.slice(1).join(' ') || '',
-    role: role || 'CUSTOMER',
-  }
-}
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
 })
 
-api.interceptors.request.use(
-  (config) => {
-    const url = config.url || ''
-    const isAuthEndpoint = /\/auth\/(login|register)$/.test(url)
-    const token = localStorage.getItem('token')
-    if (token && !isAuthEndpoint) config.headers.Authorization = `Bearer ${token}`
-    return config
-  },
-  (error) => Promise.reject(error)
-)
-
 api.interceptors.response.use(
-  (res) => res,
+  (response) => response,
   (error) => {
-    // Handle 401 errors
-    if (error.response?.status === 401) {
-      // Don't redirect for auth endpoints - let them handle errors
-      const url = error.config?.url || ''
-      const isAuthEndpoint = /\/(auth\/(login|register|logout))/.test(url)
-      
-      if (!isAuthEndpoint) {
-        // Token expired or invalid on protected endpoint
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
-      }
+    if (error.response?.status === 401 && !String(error.config?.url || '').includes('/auth/')) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      window.location.href = '/login'
     }
-    
-    // Preserve the original error for the caller to handle
     return Promise.reject(error)
   }
 )
 
+const unwrapPage = (res) => ({ ...res, data: res.data?.content || res.data })
+
+const restaurantPayload = (data) => ({
+  name: data.name,
+  cuisine: data.cuisine,
+  location: data.location || data.address || 'Hyderabad',
+  imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=400&q=80',
+  rating: Number(data.rating || 4.2),
+  deliveryTime: data.deliveryTime || '30-40 min',
+  minOrder: Number(data.minOrder || 149),
+  isOpen: data.isOpen ?? data.open ?? true,
+})
+
+const menuItemPayload = (data) => ({
+  name: data.name,
+  description: data.description || data.name,
+  price: Number(data.price),
+  imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?auto=format&fit=crop&w=400&q=80',
+  category: data.category || 'Main Course',
+  isVeg: data.isVeg ?? true,
+  rating: Number(data.rating || 4.2),
+  preparationTime: Number(data.preparationTime || 20),
+  isPopular: data.isPopular || false,
+  isAvailable: data.isAvailable ?? data.available ?? true,
+})
+
 export const authAPI = {
-  login: (data) => api.post('/auth/login', data).then(normalizeAuthResponse),
-  register: (data) => api.post('/auth/register', toRegisterRequest(data)).then(normalizeAuthResponse),
-  logout: () => api.post('/auth/logout'),
+  login: (data) => api.post('/auth/login', data),
+  register: (data) => api.post('/auth/register', data),
 }
 
 export const restaurantAPI = {
-  getAll: () => api.get('/restaurants').then(withData(normalizeRestaurant)),
-  getById: (id) => api.get(`/restaurants/${id}`).then(withData(normalizeRestaurant)),
-  getMenu: (id) => api.get(`/restaurants/${id}/menu`).then(withData(normalizeMenuItem)),
-  search: (q) => api.get('/restaurants/search', { params: { q } }).then(withData(normalizeRestaurant)),
-  create: (data) => api.post('/admin/restaurants', data).then(withData(normalizeRestaurant)),
-  uploadImage: (id, image) => {
-    const formData = new FormData()
-    formData.append('image', image)
-    return api.put(`/restaurants/${id}/image`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then(withData(normalizeRestaurant))
-  },
-}
-
-export const cartAPI = {
-  getCart: () => api.get('/cart').then(withData(normalizeCart)),
-  addItem: (data) => api.post('/cart/add', { price: 0, ...data }).then(withData(normalizeCart)),
-  updateItem: (itemId, data) => api.put(`/cart/update/${itemId}`, data).then(withData(normalizeCart)),
-  removeItem: (itemId) => api.delete(`/cart/remove/${itemId}`).then(withData(normalizeCart)),
-  clearCart: () => api.delete('/cart/clear'),
+  getAll: (params = {}) => api.get('/restaurants', { params }).then(unwrapPage),
+  getById: (id) => api.get(`/restaurants/${id}`),
+  getMenu: (id) => api.get(`/restaurants/${id}/menu`),
+  create: (data) => api.post('/admin/restaurants', restaurantPayload(data)),
+  update: (id, data) => api.put(`/admin/restaurants/${id}`, restaurantPayload(data)),
+  delete: (id) => api.delete(`/admin/restaurants/${id}`),
 }
 
 export const orderAPI = {
-  placeOrder: (data) => api.post('/orders/place', {
-    address: data.address || data.deliveryAddress,
-    deliveryAddress: data.deliveryAddress || data.address,
-  }).then(withData(normalizeOrder)),
-  getHistory: () => api.get('/orders/history').then(withData(normalizeOrder)),
-  getById: (id) => api.get(`/orders/${id}`).then(withData(normalizeOrder)),
-  getStatus: (id) => api.get(`/orders/${id}/status`),
-  cancelOrder: (id) => api.put(`/orders/cancel/${id}`).then(withData(normalizeOrder)),
-  updateStatus: (id, status) => api.put(`/admin/orders/${id}/status`, { status }).then(withData(normalizeOrder)),
+  place: (data) => api.post('/orders', data),
+  placeOrder: (data) => api.post('/orders', data),
+  mine: () => api.get('/orders/my'),
+  getHistory: () => api.get('/orders/my'),
+  get: (id) => api.get(`/orders/${id}`),
+  getById: (id) => api.get(`/orders/${id}`),
+  updateStatus: (id, status) => api.put(`/orders/${id}/status`, { status }),
+  cancelOrder: (id) => api.put(`/orders/${id}/status`, { status: 'CANCELLED' }),
 }
 
-export const userAPI = {
-  getProfile: () => api.get('/user/profile').then(withData(normalizeUser)),
-  updateProfile: (data) => api.put('/user/profile', toRegisterRequest(data)).then(withData(normalizeUser)),
+export const paymentAPI = {
+  dummy: (data) => api.post('/payment/dummy', data),
 }
 
 export const menuItemAPI = {
-  create: (data) => api.post('/admin/menu-items', data).then(withData(normalizeMenuItem)),
-  uploadImage: (id, image) => {
-    const formData = new FormData()
-    formData.append('image', image)
-    return api.put(`/admin/menu-items/${id}/image`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then(withData(normalizeMenuItem))
-  },
+  getById: (id) => api.get(`/menu-items/${id}`),
+  create: (data) => api.post(`/admin/restaurants/${data.restaurantId}/menu`, menuItemPayload(data)),
+  update: (id, data) => api.put(`/admin/menu/${id}`, menuItemPayload(data)),
+  delete: (id) => api.delete(`/admin/menu/${id}`),
+}
+
+export const adminAPI = {
+  stats: () => api.get('/admin/stats'),
+  createRestaurant: (data) => api.post('/admin/restaurants', restaurantPayload(data)),
+  updateRestaurant: (id, data) => api.put(`/admin/restaurants/${id}`, restaurantPayload(data)),
+  deleteRestaurant: (id) => api.delete(`/admin/restaurants/${id}`),
+  createMenuItem: (restaurantId, data) => api.post(`/admin/restaurants/${restaurantId}/menu`, menuItemPayload(data)),
+  updateMenuItem: (itemId, data) => api.put(`/admin/menu/${itemId}`, menuItemPayload(data)),
+  deleteMenuItem: (itemId) => api.delete(`/admin/menu/${itemId}`),
+  orders: () => api.get('/admin/orders'),
+  updateOrderStatus: (id, status) => api.put(`/admin/orders/${id}/status`, { status }),
 }
 
 export default api

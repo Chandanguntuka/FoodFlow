@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Clock, ChevronRight, Package, RotateCcw } from 'lucide-react'
 import Navbar from '../components/Navbar'
-import { orderAPI } from '../services/api'
+import { adminAPI, orderAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
 const STATUS_STYLES = {
-  PLACED:           { bg: 'bg-blue-100',   text: 'text-blue-700',   label: 'Placed'           },
+  PENDING:          { bg: 'bg-blue-100',   text: 'text-blue-700',   label: 'Placed'           },
   CONFIRMED:        { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Confirmed'         },
   PREPARING:        { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Preparing'         },
   OUT_FOR_DELIVERY: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Out for Delivery'  },
@@ -26,13 +26,14 @@ export default function OrderHistory() {
   const fetchOrders = async () => {
     try {
       setLoading(true)
-      const res = await orderAPI.getHistory()
+      setError(null)
+      const res = user?.role === 'ADMIN' ? await adminAPI.orders() : await orderAPI.getHistory()
       setOrders(res.data)
     } catch { setError('Failed to load orders') }
     finally  { setLoading(false) }
   }
 
-  const canManageOrders = ['ADMIN', 'RESTAURANT'].includes(user?.role)
+  const canManageOrders = user?.role === 'ADMIN'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -84,7 +85,7 @@ export default function OrderHistory() {
         {!loading && !error && orders.length > 0 && (
           <div className="space-y-3">
             {orders.map((order, i) => {
-              const st = STATUS_STYLES[order.status] || STATUS_STYLES.PLACED
+              const st = STATUS_STYLES[order.status] || STATUS_STYLES.PENDING
               const isActive = !['DELIVERED','CANCELLED'].includes(order.status)
               return (
                 <div
@@ -96,7 +97,7 @@ export default function OrderHistory() {
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <p className="text-xs text-gray-400 font-medium mb-1">Order #{order.id}</p>
-                      <p className="font-bold text-gray-900">{order.restaurantName || 'Restaurant'}</p>
+                      <p className="font-bold text-gray-900">{order.restaurantName || order.restaurant?.name || 'Restaurant'}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`badge ${st.bg} ${st.text}`}>
@@ -114,7 +115,7 @@ export default function OrderHistory() {
                     </p>
                     <p className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5" />
-                      {order.placedAt ? new Date(order.placedAt).toLocaleString() : 'N/A'}
+                      {order.placedAt || order.createdAt ? new Date(order.placedAt || order.createdAt).toLocaleString() : 'N/A'}
                     </p>
                   </div>
 

@@ -1,17 +1,15 @@
 package com.hackathon.hcl.DTO;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuthResponseDTO {
-
     private String token;
     private String tokenType;
     private UserResponseDTO user;
+    private String role;
 }

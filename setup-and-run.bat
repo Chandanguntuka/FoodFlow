@@ -1,77 +1,46 @@
 @echo off
 REM ========================================
-REM HCL Restaurant App - Automated Setup & Run
+REM HCL Restaurant App - Command Prompt Setup & Run
 REM ========================================
 
 echo.
 echo ========================================
-echo HCL Backend - Database Setup & Run
+echo HCL Restaurant App - Setup & Run
 echo ========================================
 echo.
 
-REM Set environment variables
-set DB_URL=jdbc:mysql://localhost:3306/hcl
+REM Defaults use the embedded H2 database so the app runs from CMD without MySQL.
+set DB_URL=jdbc:h2:mem:springbeans;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+set DB_USERNAME=sa
+set DB_PASSWORD=
+set JPA_DDL_AUTO=update
 set CORS_ALLOWED_ORIGIN_PATTERNS=http://localhost:5173,http://localhost:3000
 set MAIL_HOST=smtp.gmail.com
 set MAIL_PORT=587
-set MAIL_USERNAME=your-email@gmail.com
-set MAIL_PASSWORD=your-app-password
-set MAIL_FROM=your-email@gmail.com
+set MAIL_USERNAME=
+set MAIL_PASSWORD=
+set MAIL_FROM=no-reply@springbeans.local
 
 echo Setting environment variables...
 echo DB_URL: %DB_URL%
 echo CORS_ALLOWED_ORIGIN_PATTERNS: %CORS_ALLOWED_ORIGIN_PATTERNS%
 echo.
 
-REM Check if MySQL is running
-echo Checking MySQL connection...
-mysql -h localhost -u root -proot -e "SELECT 1" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo.
-    echo [WARNING] MySQL is not running or credentials are incorrect!
-    echo Please ensure MySQL is running with user 'root' and password 'root'
-    echo.
-    pause
-    exit /b 1
-)
-
-echo [OK] MySQL is running
-echo.
-
-REM Create database if not exists
-echo Creating database 'hcl' if it doesn't exist...
-mysql -h localhost -u root -proot -e "CREATE DATABASE IF NOT EXISTS hcl CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-if %errorlevel% equ 0 (
-    echo [OK] Database created/verified
-) else (
-    echo [ERROR] Failed to create database
-    pause
-    exit /b 1
-)
-echo.
-
-REM Navigate to backend directory
-cd /d "%~dp0hcl-backend"
-if %errorlevel% neq 0 (
-    echo [ERROR] Failed to navigate to backend directory
-    pause
-    exit /b 1
-)
-
 echo.
 echo ========================================
-echo Building and starting backend...
+echo Starting backend and frontend in separate CMD windows...
 echo ========================================
 echo.
 
-REM Run Maven to build and start the application
-call mvnw.cmd clean spring-boot:run -Dspring-boot.run.arguments="--DB_URL=%DB_URL% --CORS_ALLOWED_ORIGIN_PATTERNS=%CORS_ALLOWED_ORIGIN_PATTERNS%"
+start "HCL Backend - http://localhost:8080" cmd /k "cd /d ""%~dp0hcl-backend"" && mvn spring-boot:run"
+start "HCL Frontend - http://localhost:5173" cmd /k "cd /d ""%~dp0hcl-frontend"" && if not exist node_modules npm.cmd install && npm.cmd run dev"
 
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Failed to start backend application
-    pause
-    exit /b 1
-)
+echo Backend:  http://localhost:8080
+echo Frontend: http://localhost:5173
+echo.
+echo Login seed users:
+echo   admin@springbeans.com / Admin@123
+echo   user@springbeans.com  / User@123
+echo.
 
 pause

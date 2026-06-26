@@ -2,21 +2,14 @@ package com.hackathon.hcl.DTO;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.Data;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@Data
 public class LoginRequestDTO {
-
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email must be valid")
+    @Email
+    @NotBlank
     private String email;
 
-    @NotBlank(message = "Password is required")
+    @NotBlank
     private String password;
 }

@@ -17,12 +17,15 @@ export default function Home() {
   const [search,      setSearch]      = useState('')
   const [activeFilter, setActiveFilter] = useState('All')
   const [error,       setError]       = useState(null)
-  const canManageRestaurants = ['ADMIN', 'RESTAURANT'].includes(user?.role)
+  const canManageRestaurants = user?.role === 'ADMIN'
   const [addingRestaurant, setAddingRestaurant] = useState(false)
   const [newRestaurant, setNewRestaurant] = useState({
     name: '',
     cuisine: '',
     address: '',
+    imageUrl: '',
+    deliveryTime: '30-40 min',
+    minOrder: '149',
     rating: '4.2',
     open: true,
   })
@@ -94,6 +97,10 @@ export default function Home() {
     )
   }
 
+  const handleRestaurantDelete = (id) => {
+    setRestaurants(items => items.filter(item => item.id !== id))
+  }
+
   const handleMenuItemChange = (updatedItem) => {
     setRestaurants(items => items.map(restaurant => (
       restaurant.id === updatedItem.restaurantId
@@ -116,7 +123,7 @@ export default function Home() {
         rating: Number(newRestaurant.rating),
       })
       setRestaurants(items => [res.data, ...items])
-      setNewRestaurant({ name: '', cuisine: '', address: '', rating: '4.2',dish:'',open: true })
+      setNewRestaurant({ name: '', cuisine: '', address: '', imageUrl: '', deliveryTime: '30-40 min', minOrder: '149', rating: '4.2', open: true })
       toast.success('Restaurant added')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not add restaurant')
@@ -194,7 +201,7 @@ export default function Home() {
               <Store className="w-5 h-5 text-primary-500" />
               <h2 className="font-extrabold text-gray-900">Add Restaurant</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
               <input
                 className="input-field md:col-span-1"
                 placeholder="Restaurant name"
@@ -218,10 +225,9 @@ export default function Home() {
               />
               <input
                 className="input-field md:col-span-1"
-                placeholder="dish-type(veg/nonveg)"
-                value={newRestaurant.dish}
-                onChange={e => setNewRestaurant(data => ({ ...data, dish: e.target.value }))}
-                required
+                placeholder="Image URL"
+                value={newRestaurant.imageUrl}
+                onChange={e => setNewRestaurant(data => ({ ...data, imageUrl: e.target.value }))}
               />
               <input
                 className="input-field md:col-span-1"
@@ -233,6 +239,20 @@ export default function Home() {
                 value={newRestaurant.rating}
                 onChange={e => setNewRestaurant(data => ({ ...data, rating: e.target.value }))}
                 required
+              />
+              <input
+                className="input-field md:col-span-1"
+                placeholder="Delivery time"
+                value={newRestaurant.deliveryTime}
+                onChange={e => setNewRestaurant(data => ({ ...data, deliveryTime: e.target.value }))}
+              />
+              <input
+                className="input-field md:col-span-1"
+                type="number"
+                min="0"
+                placeholder="Min order"
+                value={newRestaurant.minOrder}
+                onChange={e => setNewRestaurant(data => ({ ...data, minOrder: e.target.value }))}
               />
               <button
                 type="submit"
@@ -295,7 +315,12 @@ export default function Home() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {menuItemResults.map((item, i) => (
                     <div key={item.id} className="animate-slide-up" style={{ animationDelay: `${i * 40}ms` }}>
-                      <MenuItemCard item={item} canManage={canManageRestaurants} onChange={handleMenuItemChange} />
+                      <MenuItemCard
+                        item={item}
+                        restaurant={{ id: item.restaurantId, name: item.restaurantName }}
+                        canManage={canManageRestaurants}
+                        onChange={handleMenuItemChange}
+                      />
                     </div>
                   ))}
                 </div>
@@ -317,6 +342,7 @@ export default function Home() {
                       restaurant={r}
                       canManage={canManageRestaurants}
                       onChange={handleRestaurantChange}
+                      onDelete={handleRestaurantDelete}
                     />
                   </div>
                 ))}
