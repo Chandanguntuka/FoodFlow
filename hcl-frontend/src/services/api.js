@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const rawBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+const rawBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'https://foodflow-r55t.onrender.com/api'
 const baseURL = rawBase.replace(/\/+$/, '').endsWith('/api')
   ? rawBase.replace(/\/+$/, '')
   : `${rawBase.replace(/\/+$/, '')}/api`
