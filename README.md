@@ -3,6 +3,10 @@ please doo vist  our website
 
 
 
+deployment link --->
+https://main.dmcxn1mahas58.amplifyapp.com
+
+
 
 # 🍕 FoodRush - Food Ordering Platform
 
